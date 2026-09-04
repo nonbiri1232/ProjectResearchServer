@@ -1,0 +1,45 @@
+# ==========================================
+# Unity (Client)
+# ==========================================
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+sysinfo.txt
+*.apk
+*.unitypackage
+
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# ==========================================
+# .NET / C# (Server & Shared)
+# ==========================================
+[Bb]in/
+[Oo]bj/
+
+# ==========================================
+# OS & IDE (VS Code, Visual Studio, Rider etc)
+# ==========================================
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~

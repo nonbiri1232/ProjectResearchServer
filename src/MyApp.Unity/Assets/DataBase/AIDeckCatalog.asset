@@ -1,0 +1,480 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dc6ff8f1d2d3e4142a3c818287446e10, type: 3}
+  m_Name: AIDeckCatalog
+  m_EditorClassIdentifier: Assembly-CSharp::AIDeckCatalog
+  decks:
+  - deckId: 0
+    cardAmounts:
+    - cardId: 0
+      amount: 4
+    - cardId: 1
+      amount: 4
+    - cardId: 2
+      amount: 4
+    - cardId: 3
+      amount: 0
+    - cardId: 4
+      amount: 0
+    - cardId: 5
+      amount: 0
+    - cardId: 6
+      amount: 0
+    - cardId: 7
+      amount: 0
+    - cardId: 8
+      amount: 0
+    - cardId: 9
+      amount: 4
+    - cardId: 10
+      amount: 0
+    - cardId: 11
+      amount: 0
+    - cardId: 12
+      amount: 4
+    - cardId: 13
+      amount: 0
+    - cardId: 14
+      amount: 4
+    - cardId: 15
+      amount: 4
+    - cardId: 16
+      amount: 0
+    - cardId: 17
+      amount: 4
+    - cardId: 18
+      amount: 0
+    - cardId: 19
+      amount: 0
+    - cardId: 20
+      amount: 0
+    - cardId: 21
+      amount: 0
+    - cardId: 22
+      amount: 0
+    - cardId: 23
+      amount: 0
+    - cardId: 24
+      amount: 0
+    - cardId: 25
+      amount: 0
+    - cardId: 26
+      amount: 0
+    - cardId: 27
+      amount: 0
+    - cardId: 28
+      amount: 0
+    - cardId: 29
+      amount: 0
+    - cardId: 30
+      amount: 0
+    - cardId: 31
+      amount: 0
+    - cardId: 32
+      amount: 0
+    - cardId: 33
+      amount: 0
+    - cardId: 34
+      amount: 0
+    - cardId: 35
+      amount: 0
+    - cardId: 36
+      amount: 0
+    - cardId: 37
+      amount: 0
+    - cardId: 38
+      amount: 0
+    - cardId: 39
+      amount: 4
+    - cardId: 40
+      amount: 0
+    - cardId: 41
+      amount: 0
+    - cardId: 42
+      amount: 0
+    - cardId: 43
+      amount: 0
+    - cardId: 44
+      amount: 4
+    cardIds: 
+  - deckId: 1
+    cardAmounts:
+    - cardId: 0
+      amount: 4
+    - cardId: 1
+      amount: 4
+    - cardId: 2
+      amount: 4
+    - cardId: 3
+      amount: 0
+    - cardId: 4
+      amount: 0
+    - cardId: 5
+      amount: 0
+    - cardId: 6
+      amount: 0
+    - cardId: 7
+      amount: 0
+    - cardId: 8
+      amount: 0
+    - cardId: 9
+      amount: 0
+    - cardId: 10
+      amount: 0
+    - cardId: 11
+      amount: 0
+    - cardId: 12
+      amount: 2
+    - cardId: 13
+      amount: 0
+    - cardId: 14
+      amount: 0
+    - cardId: 15
+      amount: 0
+    - cardId: 16
+      amount: 0
+    - cardId: 17
+      amount: 0
+    - cardId: 18
+      amount: 0
+    - cardId: 19
+      amount: 0
+    - cardId: 20
+      amount: 0
+    - cardId: 21
+      amount: 0
+    - cardId: 22
+      amount: 0
+    - cardId: 23
+      amount: 0
+    - cardId: 24
+      amount: 4
+    - cardId: 25
+      amount: 4
+    - cardId: 26
+      amount: 4
+    - cardId: 27
+      amount: 1
+    - cardId: 28
+      amount: 4
+    - cardId: 29
+      amount: 3
+    - cardId: 30
+      amount: 0
+    - cardId: 31
+      amount: 0
+    - cardId: 32
+      amount: 0
+    - cardId: 33
+      amount: 0
+    - cardId: 34
+      amount: 0
+    - cardId: 35
+      amount: 0
+    - cardId: 36
+      amount: 0
+    - cardId: 37
+      amount: 0
+    - cardId: 38
+      amount: 0
+    - cardId: 39
+      amount: 2
+    - cardId: 40
+      amount: 0
+    - cardId: 41
+      amount: 0
+    - cardId: 42
+      amount: 0
+    - cardId: 43
+      amount: 0
+    - cardId: 44
+      amount: 4
+    cardIds: 
+  - deckId: 2
+    cardAmounts:
+    - cardId: 0
+      amount: 4
+    - cardId: 1
+      amount: 4
+    - cardId: 2
+      amount: 4
+    - cardId: 3
+      amount: 4
+    - cardId: 4
+      amount: 4
+    - cardId: 5
+      amount: 0
+    - cardId: 6
+      amount: 0
+    - cardId: 7
+      amount: 0
+    - cardId: 8
+      amount: 0
+    - cardId: 9
+      amount: 0
+    - cardId: 10
+      amount: 4
+    - cardId: 11
+      amount: 0
+    - cardId: 12
+      amount: 0
+    - cardId: 13
+      amount: 0
+    - cardId: 14
+      amount: 0
+    - cardId: 15
+      amount: 0
+    - cardId: 16
+      amount: 0
+    - cardId: 17
+      amount: 0
+    - cardId: 18
+      amount: 0
+    - cardId: 19
+      amount: 4
+    - cardId: 20
+      amount: 0
+    - cardId: 21
+      amount: 0
+    - cardId: 22
+      amount: 0
+    - cardId: 23
+      amount: 0
+    - cardId: 24
+      amount: 0
+    - cardId: 25
+      amount: 0
+    - cardId: 26
+      amount: 0
+    - cardId: 27
+      amount: 0
+    - cardId: 28
+      amount: 0
+    - cardId: 29
+      amount: 4
+    - cardId: 30
+      amount: 0
+    - cardId: 31
+      amount: 0
+    - cardId: 32
+      amount: 0
+    - cardId: 33
+      amount: 0
+    - cardId: 34
+      amount: 0
+    - cardId: 35
+      amount: 0
+    - cardId: 36
+      amount: 0
+    - cardId: 37
+      amount: 0
+    - cardId: 38
+      amount: 0
+    - cardId: 39
+      amount: 0
+    - cardId: 40
+      amount: 4
+    - cardId: 41
+      amount: 0
+    - cardId: 42
+      amount: 0
+    - cardId: 43
+      amount: 0
+    - cardId: 44
+      amount: 4
+    cardIds: 
+  - deckId: 3
+    cardAmounts:
+    - cardId: 0
+      amount: 4
+    - cardId: 1
+      amount: 4
+    - cardId: 2
+      amount: 3
+    - cardId: 3
+      amount: 0
+    - cardId: 4
+      amount: 0
+    - cardId: 5
+      amount: 0
+    - cardId: 6
+      amount: 0
+    - cardId: 7
+      amount: 0
+    - cardId: 8
+      amount: 0
+    - cardId: 9
+      amount: 0
+    - cardId: 10
+      amount: 0
+    - cardId: 11
+      amount: 0
+    - cardId: 12
+      amount: 0
+    - cardId: 13
+      amount: 2
+    - cardId: 14
+      amount: 0
+    - cardId: 15
+      amount: 0
+    - cardId: 16
+      amount: 0
+    - cardId: 17
+      amount: 0
+    - cardId: 18
+      amount: 4
+    - cardId: 19
+      amount: 4
+    - cardId: 20
+      amount: 2
+    - cardId: 21
+      amount: 3
+    - cardId: 22
+      amount: 4
+    - cardId: 23
+      amount: 4
+    - cardId: 24
+      amount: 0
+    - cardId: 25
+      amount: 0
+    - cardId: 26
+      amount: 0
+    - cardId: 27
+      amount: 0
+    - cardId: 28
+      amount: 0
+    - cardId: 29
+      amount: 0
+    - cardId: 30
+      amount: 0
+    - cardId: 31
+      amount: 0
+    - cardId: 32
+      amount: 0
+    - cardId: 33
+      amount: 0
+    - cardId: 34
+      amount: 0
+    - cardId: 35
+      amount: 0
+    - cardId: 36
+      amount: 0
+    - cardId: 37
+      amount: 0
+    - cardId: 38
+      amount: 0
+    - cardId: 39
+      amount: 2
+    - cardId: 40
+      amount: 0
+    - cardId: 41
+      amount: 0
+    - cardId: 42
+      amount: 0
+    - cardId: 43
+      amount: 0
+    - cardId: 44
+      amount: 4
+    cardIds: 
+  - deckId: 4
+    cardAmounts:
+    - cardId: 0
+      amount: 4
+    - cardId: 1
+      amount: 4
+    - cardId: 2
+      amount: 0
+    - cardId: 3
+      amount: 2
+    - cardId: 4
+      amount: 0
+    - cardId: 5
+      amount: 0
+    - cardId: 6
+      amount: 2
+    - cardId: 7
+      amount: 2
+    - cardId: 8
+      amount: 2
+    - cardId: 9
+      amount: 4
+    - cardId: 10
+      amount: 0
+    - cardId: 11
+      amount: 0
+    - cardId: 12
+      amount: 0
+    - cardId: 13
+      amount: 0
+    - cardId: 14
+      amount: 0
+    - cardId: 15
+      amount: 0
+    - cardId: 16
+      amount: 0
+    - cardId: 17
+      amount: 0
+    - cardId: 18
+      amount: 0
+    - cardId: 19
+      amount: 0
+    - cardId: 20
+      amount: 0
+    - cardId: 21
+      amount: 0
+    - cardId: 22
+      amount: 0
+    - cardId: 23
+      amount: 0
+    - cardId: 24
+      amount: 4
+    - cardId: 25
+      amount: 4
+    - cardId: 26
+      amount: 4
+    - cardId: 27
+      amount: 0
+    - cardId: 28
+      amount: 4
+    - cardId: 29
+      amount: 0
+    - cardId: 30
+      amount: 0
+    - cardId: 31
+      amount: 0
+    - cardId: 32
+      amount: 0
+    - cardId: 33
+      amount: 0
+    - cardId: 34
+      amount: 0
+    - cardId: 35
+      amount: 0
+    - cardId: 36
+      amount: 0
+    - cardId: 37
+      amount: 0
+    - cardId: 38
+      amount: 0
+    - cardId: 39
+      amount: 2
+    - cardId: 40
+      amount: 0
+    - cardId: 41
+      amount: 2
+    - cardId: 42
+      amount: 0
+    - cardId: 43
+      amount: 0
+    - cardId: 44
+      amount: 0
+    cardIds: 

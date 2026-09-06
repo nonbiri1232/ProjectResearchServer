@@ -4,66 +4,55 @@ using System.Collections.Generic;
 
 public enum LogType
 {
-    TurnStart,
+    TurnStart, 
+    TurnEnd,
     PlayCard,
     Attack,
+    Damage,
+    Destroyed,
     SelfDestory,
     FailSafe,
-    Marigan
+    Marigan,
+    Draw,
+    MemoryChanged
 }
 
-public struct CardSnapshot
-{
-    public int cardId;
-    public int cost;
-    public int atk;
-    public int hp;
-}
-
-public class PlayLog
+public class PlayLogEntry
 {
     public int turnNumber;
     public bool isPlayer1;
     public LogType type;
-    public CardSnapshot cardName;
-    public CardSnapshot[] targetName;
+    public CardData? sourceCard;
+    public CardData[] targetCards;
+    public int actionValue;
 
-    public PlayLog(int turnNumber,bool isPlayer1,LogType type,CardSnapshot cardName = default,CardSnapshot[] targetName = null)
+    public PlayLogEntry(int turnNumber, bool isPlayer1, LogType type, CardData? sourceCard = null, CardData[] targetCards = null, int actionValue = 0)
     {
         this.turnNumber = turnNumber;
         this.isPlayer1 = isPlayer1;
         this.type = type;
-        this.cardName = cardName;
-        this.targetName = targetName;
+        this.sourceCard = sourceCard;
+        this.targetCards = targetCards;
+        this.actionValue = actionValue;
     }
-    public PlayLog(int turnNumber,bool isPlayer1,LogType type,CardSnapshot[] targetName)
+}
+
+public class PlayLog
+{
+    private List<PlayLogEntry> history = new List<PlayLogEntry>();
+
+    public IReadOnlyList<PlayLogEntry> History => history;
+
+    public void AddLog(int turnNumber, bool isPlayer1, LogType type, CardData sourceCard = default, CardData[] targetCards = null, int actionValue = 0)
     {
-        this.turnNumber = turnNumber;
-        this.isPlayer1 = isPlayer1;
-        this.type = type;
-        this.targetName = targetName;
+        var entry = new PlayLogEntry(turnNumber, isPlayer1, type, sourceCard, targetCards, actionValue);
+        history.Add(entry);
     }
-    public static CardSnapshot PackageData(Card target)
+    public void AddLog(int turnNumber, bool isPlayer1, LogType type, CardData[] targetCards)
     {
-        CardSnapshot cardData;
-        cardData.cardId = Card.GetCardId(target);
-        cardData.atk = target.Attack;
-        cardData.cost = target.Cost;
-        cardData.hp = target.Hp;
-        return cardData;
+        var entry = new PlayLogEntry(turnNumber, isPlayer1, type, null, targetCards, 0);
+        history.Add(entry);
     }
-    public static CardSnapshot[] PackageData(List<Card> target)
-    {
-        List<CardSnapshot> cardDatas = new List<CardSnapshot>();
-        foreach(Card c in target)
-        {    
-            CardSnapshot cardData;
-            cardData.cardId = Card.GetCardId(c);
-            cardData.atk = c.Attack;
-            cardData.cost = c.Cost;
-            cardData.hp = c.Hp;
-            cardDatas.Add(cardData);
-        }
-        return cardDatas.ToArray();
-    }
+
+
 }

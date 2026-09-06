@@ -28,6 +28,9 @@ namespace MyApp.Shared
         
         [Key(6)]
         public bool canAttackNow;
+        
+        [Key(7)]
+        public bool isProxy;
     }
     public interface IGameHub : IStreamingHub<IGameHub, IGameHubReceiver>
     {

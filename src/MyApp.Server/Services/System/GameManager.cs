@@ -6,6 +6,7 @@ public struct CardData{
     public int uniqueId;
     public int id;
     public int type; //1.Object 2.Method 3.Scope
+    public bool isProxy;
     public int cost;
     public int atk;
     public int hp;
@@ -95,7 +96,7 @@ public class GameManager
     public Card currentScope = null;
     public PhaseState currentPhase;
     List<Player> Didmarigan = new List<Player>();
-    List<PlayLog> logs = new List<PlayLog>();
+    public PlayLog playLog = new PlayLog();
     public int decisionTick = 0;
 
     public GameManager(Player first,Player second)
@@ -605,29 +606,25 @@ public class GameManager
         if(wait == move)return false;
         return true;
     }
-    public void WriteLog(LogType type,Card ccard=null,List<Card> ccards=null)
+    public void WriteLog(LogType type,Card ccard=null,List<Card> ccards=null,int actionValue = 0)
     {
-        if (ccard != null)
-        {
-            CardSnapshot scard = PlayLog.PackageData(ccard);
-            if(ccards != null)
-            {
-                List<CardSnapshot> scards = new List<CardSnapshot>(PlayLog.PackageData(ccards));
-                logs.Add(new PlayLog((systemTurn+1)/2,turn == player1,type,scards.ToArray()));
-                return;
-            }
-            logs.Add(new PlayLog((systemTurn+1)/2,turn == player1,type,scard));
-            return;
-        }
-        logs.Add(new PlayLog((systemTurn+1)/2,turn == player1,type));
+        int currentTurn = (systemTurn + 1) / 2;
+        bool isP1 = (turn == player1);
+
+        CardData sourceData = Card.PackingCard(ccard);
+        CardData[] targetData = Card.PackingCard(ccards).ToArray();
+
+        // 内部に保存
+        playLog.AddLog(currentTurn, isP1, type, sourceData, targetData, actionValue);
     }
     public void WriteLog(LogType type,List<Card> ccards)
     {
-        if(ccards != null)
-        {
-            List<CardSnapshot> scards = new List<CardSnapshot>(PlayLog.PackageData(ccards));
-            logs.Add(new PlayLog((systemTurn+1)/2,turn == player1,type,scards.ToArray()));
-            return;
-        }
+        int currentTurn = (systemTurn + 1) / 2;
+        bool isP1 = (turn == player1);
+
+        CardData[] targetData = Card.PackingCard(ccards).ToArray();
+
+        // 内部に保存
+        playLog.AddLog(currentTurn, isP1, type, targetData);
     }
 }

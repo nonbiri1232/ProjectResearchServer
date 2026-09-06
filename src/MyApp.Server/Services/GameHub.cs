@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using MyApp.Shared;
+using System.Text.Json;
 
 public class GameHub : StreamingHubBase<IGameHub, IGameHubReceiver> , IGameHub
 {
@@ -61,6 +62,39 @@ public class GameHub : StreamingHubBase<IGameHub, IGameHubReceiver> , IGameHub
         var gm = new GameManager(player1,player2);
 
         activeGames.Add(roomName,gm);
+
+        gm.OnGameFinished += (winner) =>
+        {
+            string logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"MatchLLogs");
+            if (!Directory.Exists(logDirectory))
+            {
+                Directory.CreateDirectory(logDirectory);
+            }
+
+            string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            string fileName = $"Log_{roomName}_{timestamp}.json";
+            string filePath = Path.Combine(logDirectory,fileName);
+
+            try
+            {
+                var options = new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    IncludeFields = true
+                };
+
+                string jsonString =JsonSerializer.Serialize(gm.playLog.History, options);
+                
+                File.WriteAllText(filePath, jsonString);
+
+                Console.WriteLine($"[ログ保存完了]{filePath}");
+            }
+            catch(Exception e)
+            {
+                Console.WriteLine($"[ログ保存エラー]{e.Message}");
+            }
+            activeGames.Remove(roomName);
+        };
         
         Console.WriteLine($"試合開始: {roomName} (P1: {p1.IpAddress} vs P2: {p2.IpAddress})");
 
@@ -81,6 +115,7 @@ public class GameHub : StreamingHubBase<IGameHub, IGameHubReceiver> , IGameHub
             card.hp = c.hp;
             card.type = c.type;
             card.canAttackNow = c.canAttackNow;
+            card.isProxy = c.isProxy;
             cards.Add(card);
         }
         return cards.ToArray();

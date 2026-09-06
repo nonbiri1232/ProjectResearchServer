@@ -88,8 +88,8 @@ public class GameManager
     public Player turn;
     public Player notrun;
     private const int maxHand = 8;
-    Player player1;
-    Player player2;
+    public Player player1{get;private set;}
+    public Player player2{get;private set;}
     Crest cr;
     public int systemTurn = 0;
     public bool isPlayer1Turn = true;
@@ -589,11 +589,16 @@ public class GameManager
     }
     public BoardData GetBoardData(Player player)
     {
-        BoardData board = new BoardData();
-        board.selfHand = Card.PackingCard(player.hand);
-        board.enemyField = Card.PackingCard((player==player1?player1:player2).field);
-        board.selfField = Card.PackingCard(player.field);
+        Player enemyPlayer = (player == player1) ? player2 : player1;
 
+        BoardData board = new BoardData();
+        
+        board.selfField = Card.PackingCard(player.field);
+        board.selfHand = Card.PackingCard(player.hand);
+        board.selfGarbage = Card.PackingCard(player.garbage);
+
+        board.enemyField = Card.PackingCard(enemyPlayer.field);
+        board.enemyGarbage = Card.PackingCard(enemyPlayer.garbage);
 
         return board;
     }
@@ -606,13 +611,16 @@ public class GameManager
         if(wait == move)return false;
         return true;
     }
-    public void WriteLog(LogType type,Card ccard=null,List<Card> ccards=null,int actionValue = 0)
+    public void WriteLog(LogType type,Card? ccard=null,List<Card>? ccards=null,int actionValue = 0)
     {
         int currentTurn = (systemTurn + 1) / 2;
         bool isP1 = (turn == player1);
-
-        CardData sourceData = Card.PackingCard(ccard);
-        CardData[] targetData = Card.PackingCard(ccards).ToArray();
+        CardData? sourceData = null;
+        CardData[] targetData = null;
+        if(ccard !=null)
+            sourceData = Card.PackingCard(ccard);
+        if(ccards != null)
+            targetData = Card.PackingCard(ccards).ToArray();
 
         // 内部に保存
         playLog.AddLog(currentTurn, isP1, type, sourceData, targetData, actionValue);
@@ -626,5 +634,32 @@ public class GameManager
 
         // 内部に保存
         playLog.AddLog(currentTurn, isP1, type, targetData);
+    }
+    public Card FindCardByUniqueId(int uniqueId)
+    {
+        if (uniqueId < 0) return null;
+
+        Player[] players = new Player[] { this.turn, this.notrun };
+
+        foreach (Player p in players)
+        {
+            if (p == null) continue;
+
+            // フィールド
+            foreach (Card c in p.field) { if (c != null && c.uniqueId == uniqueId) return c; }
+            // 手札
+            foreach (Card c in p.hand) { if (c != null && c.uniqueId == uniqueId) return c; }
+            // 墓地
+            foreach (Card c in p.garbage) { if (c != null && c.uniqueId == uniqueId) return c; }
+            // デッキ
+            foreach (Card c in p.deck) { if (c != null && c.uniqueId == uniqueId) return c; }
+        }
+
+        if (this.currentScope != null && this.currentScope.uniqueId == uniqueId)
+        {
+            return this.currentScope;
+        }
+
+        return null; // 見つからなかった場合
     }
 }

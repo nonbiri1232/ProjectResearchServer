@@ -84,16 +84,20 @@ public class Player
         if(hand.Count >= 8)
         {
             garbage.Add(c);
+            gm.WriteLog(LogType.DrawGabage,null,new List<Card>([c]),1);
         }
         else
         {
             hand.Add(c);
+            gm.WriteLog(LogType.DrawHand,null,new List<Card>([c]),1);
         }
         return false;
     }
 
     public bool Draw(int num)
     {
+        List<Card> handCards = new List<Card>();
+        List<Card> garbageCards = new List<Card>();
         for(int i = 0;i < num; i++)
         {
             if(deck.Count <= 0)
@@ -106,12 +110,21 @@ public class Player
             if(hand.Count >= 8)
             {
                 garbage.Add(c);
+                garbageCards.Add(c);
+
             }
             else
             {
                 hand.Add(c);
+                handCards.Add(c);
             }
         }
+        
+        if(garbageCards.Count > 0)
+            gm.WriteLog(LogType.DrawHand,null,handCards,1);
+        if(garbageCards.Count > 0)
+            gm.WriteLog(LogType.DrawGabage,null,garbageCards,garbageCards.Count);
+            
         return false;
     }
 

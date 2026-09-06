@@ -365,6 +365,13 @@ public class GameManager
         currentState = GameState.Finished;
         OnGameFinished?.Invoke(winner);
     }
+    public void FinishAsDraw()
+    {
+        if (currentState == GameState.Finished) return;
+        winner = null;
+        currentState = GameState.Finished;
+        OnGameFinished?.Invoke(null);
+    }
 
     //実体化の処理
     public bool Play(Player move,Player wait,PlayerAction action)

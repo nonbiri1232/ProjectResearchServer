@@ -149,18 +149,21 @@ public class GameHub : StreamingHubBase<IGameHub, IGameHubReceiver> , IGameHub
         Guid senderId = Context.ContextId;
 
         bool isP1Turn = (gm.turn == match.Player1);
+        
+        bool isMariganAction = (netAction.type == (int)ActionType.Marigan);
 
-        if (isP1Turn && senderId != match.Player1ConnectionId)
-        {
-            Console.WriteLine($"2Pが1Pのターンに行動を送信しました。");
-            return;
+        if(!isMariganAction){    
+            if (isP1Turn && senderId != match.Player1ConnectionId)
+            {
+                Console.WriteLine($"2Pが1Pのターンに行動を送信しました。");
+                return;
+            }
+            else if (!isP1Turn && senderId != match.Player2ConnectionId)
+            {
+                Console.WriteLine($"1Pが2Pのターンに行動を送信しました。");
+                return;
+            }
         }
-        else if (!isP1Turn && senderId != match.Player2ConnectionId)
-        {
-            Console.WriteLine($"1Pが2Pのターンに行動を送信しました。");
-            return;
-        }
-
         Player movePlayer = gm.turn;
         Player waitPlayer = gm.notrun;
 
@@ -191,6 +194,43 @@ public class GameHub : StreamingHubBase<IGameHub, IGameHubReceiver> , IGameHub
         {
             Console.WriteLine($"[アクション失敗] 部屋:{roomName}, Type:{action.type}");
         }
+    }
+
+    protected override ValueTask OnDisconnected()
+    {
+        Guid disconnectedId = Context.ContextId;
+
+        string targetRoomName = null;
+        MatchRoom targetRoom = null;
+        int disconnectedPlayerNum = 0;
+
+        foreach (var kvp in activeGames)
+        {
+            if (kvp.Value.Player1ConnectionId == disconnectedId)
+            {
+                targetRoomName = kvp.Key;
+                targetRoom = kvp.Value;
+                disconnectedPlayerNum = 1;
+                break;
+            }
+            else if (kvp.Value.Player2ConnectionId == disconnectedId)
+            {
+                targetRoomName = kvp.Key;
+                targetRoom = kvp.Value;
+                disconnectedPlayerNum = 2;
+                break;
+            }
+        }
+
+        if (targetRoom != null)
+        {
+            Console.WriteLine($"[切断検知] {targetRoomName} の {disconnectedPlayerNum}P が切断しました。");
+            
+            Player disconnectedPlayer = (disconnectedPlayerNum == 1) ? targetRoom.Player1 : targetRoom.Player2;
+            targetRoom.GM.Surrender(disconnectedPlayer);
+        }
+
+        return base.OnDisconnected();
     }
 
     //補助用メソッド

@@ -380,26 +380,34 @@ public class Card
         }
         return cardInstances;
     }
+    public static CardData PackingCard(Card card)
+    {
+    
+        CardData cardData = new CardData();
+        cardData.id = GetCardId(card);
+        cardData.atk = card.Attack;
+        cardData.hp = card.Hp;
+        cardData.cost = card.Cost;
+        cardData.canAttackNow = (card != null &&
+            card.Type == Card.CardType.Object &&
+            card.player == card.player.gm.turn &&
+            card.player.gm.currentPhase == PhaseState.Main &&
+            card.player.field.Contains(card) &&
+            card.isCanAttack &&
+            (!card.isFirstTurn || card.isImmediate) &&
+            card.isAttacked < card.attackTimes);
+        cardData.uniqueId = card.uniqueId;
+        cardData.type = (card.Type == CardType.Object?1:card.Type == CardType.Method?2:3);
+        cardData.isProxy = card.isProxy;
+
+        return cardData;
+    }
     public static List<CardData> PackingCard(List<Card> cards)
     {
         List<CardData> cardDatas = new List<CardData>();
         foreach(var c in cards)
         {
-            CardData cardData = new CardData();
-            cardData.id = GetCardId(c);
-            cardData.atk = c.Attack;
-            cardData.hp = c.Hp;
-            cardData.cost = c.Cost;
-            cardData.canAttackNow = (c != null &&
-               c.Type == Card.CardType.Object &&
-               c.player == c.player.gm.turn &&
-               c.player.gm.currentPhase == PhaseState.Main &&
-               c.player.field.Contains(c) &&
-               c.isCanAttack &&
-               (!c.isFirstTurn || c.isImmediate) &&
-               c.isAttacked < c.attackTimes);
-            cardData.uniqueId = c.uniqueId;
-            cardData.type = (c.Type == CardType.Object?1:c.Type == CardType.Method?2:3);
+            CardData cardData = PackingCard(c);
 
             cardDatas.Add(cardData);
         }

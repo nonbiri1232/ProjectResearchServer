@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using DG.Tweening;
+using UnityEngine.UI;
 
 public enum FieldType
 {
@@ -39,12 +40,87 @@ public class CardLayoutManager : MonoBehaviour
 
     private List<CardData> cards = new List<CardData>();
     private List<GameObject> fieldClone = new List<GameObject>();
+    private bool isBatchUpdating;
+
+    public bool IsFaceDown => isFaceDown;
+
+    // BattleManager calls this only after the action has passed the game rules.
+    public void PlayAttack(CardData attackerData, Vector3 targetPosition, System.Action onComplete)
+    {
+        GameObject attacker = FindCardObject(attackerData);
+        if (attacker == null) { onComplete?.Invoke(); return; }
+        Transform card = attacker.transform;
+        card.DOKill();
+        Vector3 origin = card.position;
+        Sequence sequence = DOTween.Sequence().SetTarget(card);
+        sequence.Append(card.DOMove(targetPosition, 0.2f).SetEase(Ease.InQuad));
+        sequence.AppendCallback(() => PlayImpact(targetPosition));
+        sequence.Append(card.DOMove(origin, 0.25f).SetEase(Ease.OutCubic));
+        bool completed = false;
+        System.Action finish = () =>
+        {
+            if (completed) return;
+            completed = true;
+            onComplete?.Invoke();
+        };
+        sequence.OnComplete(() => finish());
+        sequence.OnKill(() => finish());
+    }
+
+    public Vector3 CenterPosition => drawField != null ? drawField.position : transform.position;
+
+    private void PlayImpact(Vector3 position)
+    {
+        if (explosionEffectPrefab == null) return;
+        GameObject effect = Instantiate(explosionEffectPrefab, position, Quaternion.identity);
+        Destroy(effect, 3f);
+    }
+
+    public void UpdateCard(CardData data, bool isMyCard, string abilityText,
+        bool canShowAbility, Sprite sprite)
+    {
+        GameObject obj = FindCardObject(data);
+        if (obj == null) return;
+        int index = fieldClone.IndexOf(obj);
+        cards[index] = data;
+        CardView view = obj.GetComponent<CardView>();
+        view.Setup(data);
+        view.IsMyCard = isMyCard;
+        view.IsHandCard = fieldType == FieldType.Hand;
+        view.IsFieldCard = fieldType == FieldType.Field;
+        view.SetPresentation(abilityText, canShowAbility, sprite, isFaceDown);
+    }
 
     private void Awake()
     {
         Initialize();
     }
 
+    public void CreateCard(CardData data,Sprite image)
+    {
+        GameObject cardObj = Instantiate(cardPrefab, leftTop, Quaternion.identity,drawField);
+
+        CardView view = cardObj.GetComponent<CardView>();
+        if(view != null)
+        {
+            view.SetImage(image);
+            view.Setup(data);
+            view.SetPresentation(string.Empty, false, null, isFaceDown);
+        }
+
+        cards.Add(data);
+        fieldClone.Add(cardObj);
+
+        cardObj.transform.localScale = new Vector3(0.01f, 0.01f, 0.01f);
+
+        if (!isBatchUpdating)
+        {
+            CalculateLayout(cards.Count);
+            RefreshCard();
+        }
+
+
+    }
     public void CreateCard(CardData data)
     {
         GameObject cardObj = Instantiate(cardPrefab, leftTop, Quaternion.identity,drawField);
@@ -53,17 +129,48 @@ public class CardLayoutManager : MonoBehaviour
         if(view != null)
         {
             view.Setup(data);
+            view.SetPresentation(string.Empty, false, null, isFaceDown);
         }
 
         cards.Add(data);
         fieldClone.Add(cardObj);
 
-        cardObj.transform.localScale = Vector3.zero;
+        cardObj.transform.localScale = new Vector3(0.01f, 0.01f, 0.01f);
 
-        CalculateLayout(cards.Count);
-        RefreshCard();
+        if (!isBatchUpdating)
+        {
+            CalculateLayout(cards.Count);
+            RefreshCard();
+        }
 
+        
+    }
 
+    public void BeginBatchUpdate()
+    {
+        isBatchUpdating = true;
+    }
+
+    public void EndBatchUpdate(bool animate = false)
+    {
+        isBatchUpdating = false;
+        CalculateLayout(Mathf.Max(1, cards.Count));
+        if (animate) RefreshCard();
+        else ApplyLayoutImmediate();
+    }
+
+    private void ApplyLayoutImmediate()
+    {
+        Vector3 targetRot = isFaceDown ? new Vector3(0, 180, 0) : Vector3.zero;
+        Vector3 targetScale = Vector3.one * currentScale;
+        for (int i = 0; i < fieldClone.Count && i < cardPos.Length; i++)
+        {
+            Transform card = fieldClone[i].transform;
+            card.DOKill();
+            card.position = cardPos[i];
+            card.localScale = targetScale;
+            card.eulerAngles = targetRot;
+        }
     }
     public void Initialize()
     {
@@ -184,6 +291,7 @@ public class CardLayoutManager : MonoBehaviour
     public void ReceiveCard(CardLayoutManager fromManager, CardData data, GameObject obj)
     {
         FieldType sourceType = fromManager.fieldType;
+        obj.transform.SetParent(drawField, true);
         
         // 元のマネージャーの管理から外す
         fromManager.RemoveCard(data, obj);
@@ -243,6 +351,8 @@ public class CardLayoutManager : MonoBehaviour
                 }
                 break;
         }
+        if (fieldType == FieldType.Field)
+            seq.AppendCallback(() => PlayImpact(targetPosVec));
     }
 
     public void SpawnTokenCard(CardData data)
@@ -264,6 +374,7 @@ public class CardLayoutManager : MonoBehaviour
         Vector3 startPos = targetPosVec + new Vector3(0, 1.5f, 0);
         GameObject card = Instantiate(cardPrefab, startPos, Quaternion.identity);
         fieldClone.Add(card);
+        card.GetComponent<CardView>().Setup(data);
 
         card.transform.localScale = Vector3.zero; // 最初は見えない
 

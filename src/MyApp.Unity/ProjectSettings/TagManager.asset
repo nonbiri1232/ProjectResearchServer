@@ -5,6 +5,7 @@ TagManager:
   serializedVersion: 3
   tags:
   - Card
+  - EnemyPlayer
   layers:
   - Default
   - TransparentFX

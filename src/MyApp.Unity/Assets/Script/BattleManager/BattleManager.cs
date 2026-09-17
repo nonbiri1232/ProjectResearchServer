@@ -9,10 +9,27 @@ public abstract class BattleManager : NetworkBehaviour
     protected Player localPlayer;   // 自分（操作する側）
     protected Player remotePlayer;  // 相手（AI または 通信相手）
 
-    public PhaseState CurrentPhase => gm != null ? gm.currentPhase : PhaseState.Start;
-    public bool IsFinished => gm != null && gm.currentState == GameState.Finished;
+    public virtual PhaseState CurrentPhase => gm != null ? gm.currentPhase : PhaseState.Start;
+    public virtual bool IsFinished => gm != null && gm.currentState == GameState.Finished;
 
-    public int RequiresTargetCount(CardData cardData)
+    protected bool isPresenting;
+
+    public virtual bool CanAttackTarget(CardData attackerData, CardData? targetData = null)
+    {
+        if (!CanAct() || CurrentPhase != PhaseState.Main || remotePlayer == null) return false;
+        Card attacker = localPlayer.field.FirstOrDefault(c => c.uniqueId == attackerData.uniqueId);
+        if (attacker == null || attacker.Type != Card.CardType.Object || !attacker.isCanAttack ||
+            (attacker.isFirstTurn && !attacker.isImmediate) || attacker.isAttacked >= attacker.attackTimes)
+            return false;
+
+        var objects = remotePlayer.field.Where(c => c.Type == Card.CardType.Object).ToList();
+        if (!targetData.HasValue) return objects.Count == 0 && !attacker.isFirstTurn;
+        Card target = objects.FirstOrDefault(c => c.uniqueId == targetData.Value.uniqueId);
+        return target != null && !target.isEncrypted &&
+               (!objects.Any(c => c.isProxy) || target.isProxy);
+    }
+
+    public virtual int RequiresTargetCount(CardData cardData)
     {
         if (localPlayer == null) return 0;
 
@@ -29,12 +46,34 @@ public abstract class BattleManager : NetworkBehaviour
         return 0;
     }
 
+    public virtual bool TryGetPlayTargets(CardData cardData, out where targetArea, out List<int> targetUniqueIds)
+    {
+        targetArea = where.None;
+        targetUniqueIds = new List<int>();
+        if (localPlayer == null || remotePlayer == null) return false;
+
+        Card source = localPlayer.hand.FirstOrDefault(c => c.uniqueId == cardData.uniqueId);
+        if (source == null || source.select == null || !source.select.isSelectConstructor)
+            return false;
+
+        targetArea = source.select.whereTarget;
+        List<Card> candidates = source.select.numOfSelect == 1
+            ? LegalActionGenerator.GetValidPlayTargets(localPlayer, remotePlayer, source)
+            : LegalActionGenerator.GetPlayTargetPool(localPlayer, remotePlayer, source);
+        targetUniqueIds = candidates
+            .Where(c => c != null && c.uniqueId != source.uniqueId)
+            .Select(c => c.uniqueId)
+            .Distinct()
+            .ToList();
+        return targetUniqueIds.Count >= source.select.numOfSelect;
+    }
+
     /// <summary>
     /// 現在、自分が操作可能な状態（自分のターンで、入力待ち）かを確認する
     /// </summary>
-    public bool CanAct()
+    public virtual bool CanAct()
     {
-        return gm != null && 
+        return !isPresenting && localPlayer != null && gm != null &&
                gm.currentState == GameState.WaitingForInput && 
                gm.turn == localPlayer;
     }

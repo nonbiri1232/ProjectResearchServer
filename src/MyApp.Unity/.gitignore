@@ -106,9 +106,9 @@ InitTestScene*.unity*
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
 
-# Keep Packages/manifest.json and Packages/packages-lock.json tracked.
-# Ignore package source copied into the project; use the pinned UPM dependency instead.
-/[Pp]ackages/com.unity.ml-agents/
+# Keep Packages/manifest.json, packages-lock.json, and the embedded ML-Agents
+# package tracked. The embedded package contains the project-specific
+# Grpc.Core.dll Auto Reference setting needed alongside MagicOnion.
 /[Pp]ackages/com.unity.ml-agents.*.tgz
 
 # Python environments and caches used by ML-Agents training
@@ -120,7 +120,9 @@ ml_env/
 .pytest_cache/
 
 # ML-Agents generated training output (configs and selected ONNX assets stay tracked)
-/[Rr]esults/
+# Keep the human-readable experiment index available to collaborators.
+/[Rr]esults/*
+!/[Rr]esults/学習データ一覧.txt
 /[Mm]l-agents-configs/[Rr]esults/
 /[Aa]ssets/ML-Agents/Timers/
 **/events.out.tfevents.*

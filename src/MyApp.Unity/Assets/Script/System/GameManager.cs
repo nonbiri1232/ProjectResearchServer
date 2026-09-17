@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+
 public enum GameState
 {
     Processing,
@@ -76,15 +77,15 @@ public class GameManager
     public Player turn;
     public Player notrun;
     private const int maxHand = 8;
-    Player player1;
-    Player player2;
+    public Player player1{get;private set;}
+    public Player player2{get;private set;}
     Crest cr;
     public int systemTurn = 0;
     public bool isPlayer1Turn = true;
     public Card currentScope = null;
     public PhaseState currentPhase;
     List<Player> Didmarigan = new List<Player>();
-    List<PlayLog> logs = new List<PlayLog>();
+    public PlayLog playLog = new PlayLog();
     public int decisionTick = 0;
 
     public GameManager(Player first,Player second)
@@ -353,6 +354,13 @@ public class GameManager
         currentState = GameState.Finished;
         OnGameFinished?.Invoke(winner);
     }
+    public void FinishAsDraw()
+    {
+        if (currentState == GameState.Finished) return;
+        winner = null;
+        currentState = GameState.Finished;
+        OnGameFinished?.Invoke(null);
+    }
 
     //実体化の処理
     public bool Play(Player move,Player wait,PlayerAction action)
@@ -577,11 +585,16 @@ public class GameManager
     }
     public BoardData GetBoardData(Player player)
     {
-        BoardData board = new BoardData();
-        board.selfHand = Card.PackingCard(player.hand);
-        board.enemyField = Card.PackingCard((player==player1?player1:player2).field);
-        board.selfField = Card.PackingCard(player.field);
+        Player enemyPlayer = (player == player1) ? player2 : player1;
 
+        BoardData board = new BoardData();
+        
+        board.selfField = Card.PackingCard(player.field);
+        board.selfHand = Card.PackingCard(player.hand);
+        board.selfGarbage = Card.PackingCard(player.garbage);
+
+        board.enemyField = Card.PackingCard(enemyPlayer.field);
+        board.enemyGarbage = Card.PackingCard(enemyPlayer.garbage);
 
         return board;
     }
@@ -594,29 +607,55 @@ public class GameManager
         if(wait == move)return false;
         return true;
     }
-    public void WriteLog(LogType type,Card ccard=null,List<Card> ccards=null)
+    public void WriteLog(LogType type,Card ccard=null,List<Card> ccards=null,int actionValue = 0)
     {
-        if (ccard != null)
-        {
-            CardSnapshot scard = PlayLog.PackageData(ccard);
-            if(ccards != null)
-            {
-                List<CardSnapshot> scards = new List<CardSnapshot>(PlayLog.PackageData(ccards));
-                logs.Add(new PlayLog((systemTurn+1)/2,turn == player1,type,scards.ToArray()));
-                return;
-            }
-            logs.Add(new PlayLog((systemTurn+1)/2,turn == player1,type,scard));
-            return;
-        }
-        logs.Add(new PlayLog((systemTurn+1)/2,turn == player1,type));
+        int currentTurn = (systemTurn + 1) / 2;
+        bool isP1 = (turn == player1);
+        CardData? sourceData = null;
+        CardData[] targetData = null;
+        if(ccard !=null)
+            sourceData = Card.PackingCard(ccard);
+        if(ccards != null)
+            targetData = Card.PackingCard(ccards).ToArray();
+
+        // 内部に保存
+        playLog.AddLog(currentTurn, isP1, type, sourceData, targetData, actionValue);
     }
     public void WriteLog(LogType type,List<Card> ccards)
     {
-        if(ccards != null)
+        int currentTurn = (systemTurn + 1) / 2;
+        bool isP1 = (turn == player1);
+
+        CardData[] targetData = Card.PackingCard(ccards).ToArray();
+
+        // 内部に保存
+        playLog.AddLog(currentTurn, isP1, type, targetData);
+    }
+    public Card FindCardByUniqueId(int uniqueId)
+    {
+        if (uniqueId < 0) return null;
+
+        Player[] players = new Player[] { this.turn, this.notrun };
+
+        foreach (Player p in players)
         {
-            List<CardSnapshot> scards = new List<CardSnapshot>(PlayLog.PackageData(ccards));
-            logs.Add(new PlayLog((systemTurn+1)/2,turn == player1,type,scards.ToArray()));
-            return;
+            if (p == null) continue;
+
+            // フィールド
+            foreach (Card c in p.field) { if (c != null && c.uniqueId == uniqueId) return c; }
+            // 手札
+            foreach (Card c in p.hand) { if (c != null && c.uniqueId == uniqueId) return c; }
+            // 墓地
+            foreach (Card c in p.garbage) { if (c != null && c.uniqueId == uniqueId) return c; }
+            // デッキ
+            foreach (Card c in p.deck) { if (c != null && c.uniqueId == uniqueId) return c; }
         }
+
+        if (this.currentScope != null && this.currentScope.uniqueId == uniqueId)
+        {
+            return this.currentScope;
+        }
+
+        return null; // 見つからなかった場合
     }
 }

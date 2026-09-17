@@ -1,0 +1,254 @@
+ProjectResearch 学習データ一覧
+==============================
+
+最終更新: 2026-09-04
+
+このファイルはresultsフォルダ内の各Runについて、目的・設定・結果をまとめた一覧です。
+Self-play ELOは同一Run内の推移を見るための値であり、別Run同士の絶対的な強さは
+固定対戦相手または同一条件の総当たり評価で比較してください。
+
+
+1. MyFirstRun01
+---------------
+状態: 途中終了した初期テスト
+方式: PPO（Self-playなし）
+予定ステップ: 500,000
+実行ステップ: 3,218
+最終報酬: 約-0.682
+
+主な設定:
+・batch_size: 1024
+・buffer_size: 10240
+・learning_rate: 0.0003（linear）
+・beta: 0.005（linear）
+・time_horizon: 64
+・checkpoint_interval: 500,000
+
+出力モデル:
+・MyFirstRun01/CardGame.onnx
+
+備考:
+実行ステップが少ないため、強さの比較対象ではなく動作確認用データとして扱う。
+
+
+2. RewardBased_03
+-----------------
+状態: 完了
+方式: 新方式 PPO + Self-play
+目的: 勝敗報酬に小さなメモリ進行報酬を加えた学習
+予定ステップ: 1,000,000
+実行ステップ: 1,000,197
+最終ELO: 約1413
+最終報酬: 約0.229
+
+報酬設定:
+・勝利: +1.0
+・敗北: -1.0
+・メモリ進行報酬係数: 0.05
+・有効行動: -0.001（当時のコード既定値）
+・実行失敗: -0.05（当時のコード既定値）
+・無効選択: -0.02（当時のコード既定値）
+
+主な設定:
+・batch_size: 1024
+・buffer_size: 10240
+・learning_rate: 0.0003（linear）
+・beta: 0.005（linear）
+・gamma: 0.995
+・time_horizon: 256
+・checkpoint_interval: 100,000
+・Self-play window: 10
+
+出力モデル:
+・RewardBased_03/CardGame.onnx
+・RewardBased_03/CardGame/CardGame-各ステップ.onnx
+
+備考:
+メモリ進行報酬係数0.05は効果がかなり小さく、実質的に勝敗報酬中心の学習だった
+可能性がある。この結果を受け、次の実験では係数を0.5へ変更した。
+
+
+3. MemoryEfficiency_10M
+-----------------------
+状態: 完了
+実行日: 2026-09-04
+方式: 新方式 MlAgents.cs / TrainingArena.cs、PPO + Self-play
+開始方法: 新規学習（resume、initialize-from未使用）
+対応コミット: 2acc7e9ef19d469c4ab4d68167b6951062b66e58
+
+目的:
+登録済み5デッキ（Deck ID 0～4）を両陣営が独立にランダム選択し、
+勝敗・メモリ進行・行動効率を組み合わせた報酬で学習する。
+5×5＝25通りの対面で、ステップ数増加の効果を確認する。
+
+実行環境:
+・Unityシーン: AILearning
+・TrainingOpponentMode: SelfPlay
+・TrainingArea: 12個
+・AIDeckCatalog: Deck ID 0～4
+・Agent A / BのデッキID指定: 空（全登録デッキから選択）
+・time_scale: 20
+・PyTorch 2.1.1+cpu
+
+報酬設定:
+・勝利: +1.0
+・敗北: -1.0
+・メモリ進行報酬係数: 0.5
+・有効行動: -0.001
+・実行失敗: -0.05
+・無効選択: -0.02
+
+PPO設定:
+・batch_size: 1024
+・buffer_size: 10240
+・learning_rate: 0.0003（linear）
+・beta: 0.005（linear）
+・epsilon: 0.2（linear）
+・lambda: 0.95
+・num_epoch: 3
+・gamma: 0.995
+・hidden_units: 256
+・num_layers: 2
+・normalize: true
+・time_horizon: 256
+
+Self-play設定:
+・save_steps: 50,000
+・team_change: 200,000
+・swap_steps: 10,000
+・window: 10
+・play_against_latest_model_ratio: 0.5
+・initial_elo: 1200
+
+保存設定:
+・max_steps: 10,000,000
+・summary_freq: 10,000
+・checkpoint_interval: 1,000,000
+・keep_checkpoints: 10
+
+結果:
+・最終ステップ: 10,000,059
+・所要時間: 約7時間13分
+・平均速度: 約384 steps/秒
+・最終ELO: 約1406
+・最高ELO: 約1462（約950,000ステップ）
+・Entropy: 約1,000,000時点で0.026、最終時点で0.002
+・無効選択数: 0
+・全25デッキ対面をTensorBoardへ記録
+
+解釈:
+約950,000ステップでELOが最高となり、その後は大きく伸びなかった。
+Entropyも早期に低下しているため、約1,000,000ステップ前後で方策が固定化し、
+残りの学習が大幅な性能向上につながらなかった可能性がある。
+最終モデルが最強とは限らないため、各チェックポイントを固定条件で比較する。
+
+出力モデル:
+・MemoryEfficiency_10M/CardGame.onnx（最終モデル）
+・MemoryEfficiency_10M/CardGame/CardGame-各ステップ.onnx
+
+
+4. MemoryEfficiencyExplore_3M
+-----------------------------
+状態: 3,000,363ステップ完了後、同一Runを10,000,000まで延長予定
+方式: 探索維持版 PPO + Self-play
+目的: MemoryEfficiency_10Mと報酬・デッキ・ネットワークを同一に保ち、
+      Entropyを促すbetaのみ変更して、早期の方策固定を防げるか確認する。
+
+MemoryEfficiency_10Mからの主な変更:
+・beta: 0.005 → 0.01
+・beta_schedule: linear → constant
+・max_steps: 3,000,000
+・checkpoint_interval: 500,000
+・keep_checkpoints: 6
+
+同一条件:
+・5デッキ、12 TrainingArea
+・メモリ進行報酬係数: 0.5
+・有効行動報酬: -0.001
+・PPOネットワーク、Self-play設定はMemoryEfficiency_10Mと同一
+
+結果:
+・最終ステップ: 3,000,363
+・所要時間: 約2時間14分
+・平均速度: 約372 steps/秒
+・最終ELO: 約1497
+・最高ELO: 約1497（約2,990,000ステップ）
+・Entropy: 500,000時点で0.358、1,000,000時点で0.074、最終時点で0.023
+・最終付近の累積報酬: 約0.369
+・最終付近のAgent A勝率: 約0.607
+・無効選択数: 0
+
+MemoryEfficiency_10Mとのログ比較:
+・通常版のEntropyは1,000,000時点で0.026、3,000,000時点で0.005だった。
+・探索維持版は1,000,000時点で0.074、3,000,000時点で0.023となり、
+  同じステップ時点で探索性をより長く維持できた。
+・探索維持版のELOは終了付近まで上昇した一方、通常版は約950,000で最高となった。
+・別Run間のELOは絶対比較できないため、強さの結論には固定条件での対戦評価が必要。
+
+解釈:
+betaを0.01へ増加しconstantにしたことで、早期の方策固定を緩和する狙いは達成した。
+少なくとも学習挙動はMemoryEfficiency_10Mより良好で、最終モデルを評価候補とする。
+
+設定ファイル:
+・ml-agents-configs/memory_efficiency_exploration_3m_config.yaml
+
+延長設定:
+・ml-agents-configs/memory_efficiency_exploration_10m_resume_config.yaml
+・同じRun ID「MemoryEfficiencyExplore_3M」に--resumeで接続
+・max_steps: 10,000,000
+・checkpoint_interval: 500,000
+・keep_checkpoints: 20
+・300万までのモデル、Optimizer、Self-play状態を引き継ぎ、合計1000万まで学習する。
+
+出力モデル:
+・MemoryEfficiencyExplore_3M/CardGame.onnx（最終モデル）
+・MemoryEfficiencyExplore_3M/CardGame/CardGame-各ステップ.onnx
+
+10,000,000ステップ延長中の障害と復旧（2026-09-04）:
+・約6,860,000ステップ以降、SelectAction/SelectPlaySourceの無効選択0が連続し、
+  対局が完了せずELOが更新されない状態になった。
+・停止時点: 7,153,842ステップ
+・問題発生前のCardGame-6499876.ptをcheckpoint.ptへ復元した。
+・停止時点のcheckpoint.ptは
+  CardGame/checkpoint-before-rollback-7153842.ptとして保存した。
+・無効選択時に現在の合法手へフォールバックする処理を追加した。
+・学習対局が200 system turnsへ達した場合、引き分けで終了する安全上限を追加した。
+・次回は6,499,876ステップから--resumeで再開する。
+
+
+比較時の注意
+------------
+・ELOはRunをまたいで単純比較しない。
+・同じデッキ、先攻後攻、試合数で評価する。
+・最終モデルだけでなく途中チェックポイントも比較する。
+・報酬方式の効果を比較するときは、ステップ数やPPO設定を揃える。
+・resultsフォルダは通常Git管理対象外のため、別PCへ共有する場合はモデルと
+  このメモを明示的にコピーする。
+
+
+5. TeacherCurriculum_10M（予定）
+--------------------------------
+状態: 設定完了、未実行
+方式: 新方式 PPO、固定ルールベース教師 → Self-play
+目的: 学習序盤に教師AIを使うことで、純粋なSelf-playより早く基本戦術を獲得し、
+      最終的な対人性能が改善するか確認する。
+
+Phase 1:
+・Run ID: TeacherWarmup_2M
+・固定RuleBasedControllerを相手に2,000,000ステップ
+・設定: ml-agents-configs/teacher_curriculum_warmup_2m_config.yaml
+
+Phase 2:
+・Run ID: TeacherCurriculum_10M
+・TeacherWarmup_2Mから--initialize-fromで重みを引き継ぐ
+・Self-playを8,000,000ステップ
+・設定: ml-agents-configs/teacher_curriculum_selfplay_8m_config.yaml
+
+共通条件:
+・5デッキ、12 TrainingArea
+・勝利+1、敗北-1、メモリ進行報酬係数0.5
+・beta 0.01 constant、hidden_units 256、2層
+・学習経験の合計: 10,000,000ステップ
+
+実行手順:
+・ml-agents-configs/TEACHER_CURRICULUM.md

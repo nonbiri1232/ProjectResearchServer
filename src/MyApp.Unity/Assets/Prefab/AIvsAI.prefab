@@ -46,8 +46,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a121344ae96ad7b4396d55bc0f58d6d0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AIAIBattleManager
-  aiAgent1: {fileID: 3868259002235481669}
-  aiAgent2: {fileID: 7024614544054199526}
+  ai1_New: {fileID: 0}
+  ai1_Legacy: {fileID: 0}
+  ai2_New: {fileID: 0}
+  ai2_Legacy: {fileID: 0}
   maxMatches: 100000
   randomizeFirstPlayer: 1
   aiDeckCatalog: {fileID: 11400000, guid: 0b340e359bb095f4d83754ea1fad58b6, type: 2}
@@ -63,7 +65,6 @@ GameObject:
   m_Component:
   - component: {fileID: 615713922360829567}
   - component: {fileID: 4751067978174490195}
-  - component: {fileID: 3868259002235481669}
   m_Layer: 0
   m_Name: AgentA
   m_TagString: Untagged
@@ -117,23 +118,6 @@ MonoBehaviour:
   m_UseChildActuators: 1
   m_DeterministicInference: 0
   m_ObservableAttributeHandling: 0
---- !u!114 &3868259002235481669
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6280807735437187842}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 80e7f72c027fe2c47a80cf595a8838c1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::MlAgents
-  agentParameters:
-    maxStep: 0
-  hasUpgradedFromAgentParameters: 1
-  MaxStep: 0
-  memoryProgressRewardScale: 0.05
 --- !u!1 &8601143679359182429
 GameObject:
   m_ObjectHideFlags: 0
@@ -215,3 +199,8 @@ MonoBehaviour:
   hasUpgradedFromAgentParameters: 1
   MaxStep: 0
   memoryProgressRewardScale: 0.05
+  terminalWinReward: 1
+  terminalLossReward: -1
+  validActionReward: -0.001
+  failedActionReward: -0.05
+  invalidSelectionReward: -0.02

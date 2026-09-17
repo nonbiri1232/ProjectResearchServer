@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -11,6 +12,7 @@ public struct CardData : INetworkSerializable
     public int atk;
     public int hp;
     public bool canAttackNow;
+    public bool isProxy;
 
     // 通信で送るためのパッキング処理
     public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
@@ -22,17 +24,30 @@ public struct CardData : INetworkSerializable
         serializer.SerializeValue(ref atk);
         serializer.SerializeValue(ref hp);
         serializer.SerializeValue(ref canAttackNow);
+        serializer.SerializeValue(ref isProxy);
     }
 }
-public class LocalBattleManager:NetworkBehaviour
+public class LocalBattleManager : BattleManager
 {
     [Header("描画クラスへの参照")]
     [SerializeField] private LocalBattleVisual visualManager;
+
+    [Header("新描画システム（段階移行用）")]
+    [SerializeField] private PlayerInputManager inputManager;
+    [SerializeField] private CardLayoutManager p1HandLayout;
+    [SerializeField] private CardLayoutManager p1FieldLayout;
+    [SerializeField] private CardLayoutManager p2HandLayout;
+    [SerializeField] private CardLayoutManager p2FieldLayout;
+    [SerializeField] private CardConect cardDatabase;
+
     private Dictionary<ulong, List<Card>> receivedDecks = new Dictionary<ulong, List<Card>>();
-    private GameManager gm;
     private Player host;
     private Player client;
     private Player first;
+    private ulong remoteClientId = ulong.MaxValue;
+    private CardData[] cachedSelfHand = new CardData[0];
+    private CardData[] cachedSelfField = new CardData[0];
+    private CardData[] cachedEnemyField = new CardData[0];
 
     public NetworkVariable<ulong> currentTurnPlayerId = new NetworkVariable<ulong>(
         0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -40,8 +55,36 @@ public class LocalBattleManager:NetworkBehaviour
     public NetworkVariable<PhaseState> currentPhaseState = new NetworkVariable<PhaseState>(
         PhaseState.Start, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-    public bool IsMyTurn => currentTurnPlayerId.Value == NetworkManager.LocalClientId;
-    public PhaseState CurrentPhase => currentPhaseState.Value;
+    public bool IsMyTurn => IsSpawned && NetworkManager != null &&
+                            currentTurnPlayerId.Value == NetworkManager.LocalClientId;
+    public override PhaseState CurrentPhase => currentPhaseState.Value;
+
+    private void Awake()
+    {
+        WireNewBattleView();
+    }
+
+    private void WireNewBattleView()
+    {
+        if (cardDatabase == null && visualManager != null)
+            cardDatabase = visualManager.cardDatabase;
+
+        if (inputManager == null)
+            inputManager = FindAnyObjectByType<PlayerInputManager>();
+        if (inputManager == null) return;
+
+        inputManager.battleManager = this;
+        p1HandLayout = p1HandLayout != null ? p1HandLayout : inputManager.p1HandLayout;
+        p1FieldLayout = p1FieldLayout != null ? p1FieldLayout : inputManager.p1FieldLayout;
+        p2FieldLayout = p2FieldLayout != null ? p2FieldLayout : inputManager.p2FieldLayout;
+        inputManager.p1HandLayout = p1HandLayout;
+        inputManager.p1FieldLayout = p1FieldLayout;
+        inputManager.p2FieldLayout = p2FieldLayout;
+
+        if (cardDatabase == null && inputManager.uiManager != null)
+            cardDatabase = inputManager.uiManager.cardDatabase;
+    }
+
     public override void OnNetworkSpawn()
     {
         isDidMariganHost = false;
@@ -51,10 +94,16 @@ public class LocalBattleManager:NetworkBehaviour
         SubmitDeckServerRpc(DeckManager.player1Deck.ToArray());
 
         // ターンが変わった時のUI更新
-        currentTurnPlayerId.OnValueChanged += (oldId, newId) => visualManager.UpdateUI();
+        currentTurnPlayerId.OnValueChanged += (oldId, newId) =>
+        {
+            if (visualManager != null) visualManager.UpdateUI();
+        };
         
         //フェイズが変わった時も自動で画面を更新する
-        currentPhaseState.OnValueChanged += (oldState, newState) => visualManager.UpdateUI();
+        currentPhaseState.OnValueChanged += (oldState, newState) =>
+        {
+            if (visualManager != null) visualManager.UpdateUI();
+        };
 
         //通信状況を監視
         NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnect;
@@ -115,6 +164,98 @@ public class LocalBattleManager:NetworkBehaviour
         {
             currentPhaseState.Value = gm.currentPhase;
         }
+    }
+
+    public override bool CanAct()
+    {
+        return !isPresenting && IsMyTurn;
+    }
+
+    public override int RequiresTargetCount(CardData cardData)
+    {
+        Card card = Card.CreateCardInstance(cardData);
+        return card != null && card.select != null && card.select.isSelectConstructor
+            ? card.select.numOfSelect : 0;
+    }
+
+    public override bool TryGetPlayTargets(CardData cardData, out where targetArea,
+        out List<int> targetUniqueIds)
+    {
+        targetArea = where.None;
+        targetUniqueIds = new List<int>();
+        Card source = Card.CreateCardInstance(cardData);
+        if (source == null || source.select == null || !source.select.isSelectConstructor)
+            return false;
+
+        targetArea = source.select.whereTarget;
+        CardData[] candidates;
+        switch (targetArea)
+        {
+            case where.hand: candidates = cachedSelfHand; break;
+            case where.selfField: candidates = cachedSelfField; break;
+            case where.enemyField: candidates = cachedEnemyField; break;
+            default: return false;
+        }
+
+        targetUniqueIds = candidates
+            .Where(c => c.uniqueId != cardData.uniqueId)
+            .Select(c => c.uniqueId)
+            .Distinct()
+            .ToList();
+        return targetUniqueIds.Count >= source.select.numOfSelect;
+    }
+
+    public override bool CanAttackTarget(CardData attackerData, CardData? targetData = null)
+    {
+        CardData? attacker = cachedSelfField
+            .Where(c => c.uniqueId == attackerData.uniqueId)
+            .Cast<CardData?>()
+            .FirstOrDefault();
+        if (!CanAct() || CurrentPhase != PhaseState.Main || !attacker.HasValue ||
+            !attacker.Value.canAttackNow)
+            return false;
+
+        CardData[] objects = cachedEnemyField.Where(c => c.type == 1).ToArray();
+        if (!targetData.HasValue) return objects.Length == 0;
+        CardData? target = objects.Where(c => c.uniqueId == targetData.Value.uniqueId)
+            .Cast<CardData?>().FirstOrDefault();
+        return target.HasValue && (!objects.Any(c => c.isProxy) || target.Value.isProxy);
+    }
+
+    public override void SubmitPlay(CardData sourceData, bool addCost,
+        List<CardData> targetDatas = null)
+    {
+        if (!CanAct()) return;
+        int[] targetIds = targetDatas == null
+            ? new int[0] : targetDatas.Select(c => c.uniqueId).ToArray();
+        SubmitPlayByIdServerRpc(sourceData.uniqueId, addCost, targetIds);
+    }
+
+    public override void SubmitAttack(CardData attackerData, CardData? targetData = null)
+    {
+        if (!CanAttackTarget(attackerData, targetData)) return;
+        SubmitAttackByIdServerRpc(attackerData.uniqueId,
+            targetData.HasValue ? targetData.Value.uniqueId : -1);
+    }
+
+    public override void SubmitEndTurn()
+    {
+        if (CanAct()) TurnEndRpc();
+    }
+
+    public override void SubmitMarigan(List<CardData> selectedCardsData)
+    {
+        int[] selectedCardTypeIds = selectedCardsData == null
+            ? new int[0] : selectedCardsData.Select(c => c.id).ToArray();
+        DecideMariganRpc(selectedCardTypeIds);
+    }
+
+    public override void SubmitSelfGarbage(List<CardData> selectedCardsData)
+    {
+        if (!CanAct()) return;
+        int[] selectedIds = selectedCardsData == null
+            ? new int[0] : selectedCardsData.Select(c => c.uniqueId).ToArray();
+        SubmitSelfGarbageByIdServerRpc(selectedIds);
     }
     public void PackageData(Player pl)
     {
@@ -197,6 +338,9 @@ public class LocalBattleManager:NetworkBehaviour
         Debug.Log($"クライアントのデッキ枚数{clientDeck.Count}");
         host = new Player(hostDeck);
         client = new Player(clientDeck);
+        remoteClientId = clientId;
+        localPlayer = host;
+        remotePlayer = client;
 
         host.OnFailSafeTriggered += (card) => NotifyFailSafe(Card.GetCardId(card));
         client.OnFailSafeTriggered += (card) => NotifyFailSafe(Card.GetCardId(card));
@@ -233,6 +377,7 @@ public class LocalBattleManager:NetworkBehaviour
     [ClientRpc]
     private void EndClientRpc(int winner)
     {
+        if (visualManager == null) return;
         if (IsServer)
         {
             if(winner == 1)
@@ -284,7 +429,7 @@ public class LocalBattleManager:NetworkBehaviour
     {
         if (targetId == NetworkManager.ServerClientId && IsServer)
         {
-            visualManager.SetupInitialBoard(myHand, myField, enemyField, myMemory, enemyMemory, scope);
+            ReceiveBoardData(myHand, myField, enemyField, myMemory, enemyMemory, scope);
             return;
         }
         RpcSendParams sendParams = new RpcSendParams { Target = RpcTarget.Single(targetId, RpcTargetUse.Temp) };
@@ -295,7 +440,18 @@ public class LocalBattleManager:NetworkBehaviour
     [Rpc(SendTo.SpecifiedInParams)]
     private void SetupBoardClientRpc(CardData[] selfHand, CardData[] selfField, CardData[] enemyField,int[] selfMemory,int[] enemyMemory,int scope,RpcParams rpcParams = default)
     {
-        visualManager.SetupInitialBoard(selfHand,selfField,enemyField,selfMemory,enemyMemory,scope);
+        ReceiveBoardData(selfHand, selfField, enemyField, selfMemory, enemyMemory, scope);
+    }
+
+    private void ReceiveBoardData(CardData[] selfHand, CardData[] selfField,
+        CardData[] enemyField, int[] selfMemory, int[] enemyMemory, int scope)
+    {
+        cachedSelfHand = selfHand ?? new CardData[0];
+        cachedSelfField = selfField ?? new CardData[0];
+        cachedEnemyField = enemyField ?? new CardData[0];
+        if (visualManager != null)
+            visualManager.SetupInitialBoard(selfHand, selfField, enemyField,
+                selfMemory, enemyMemory, scope);
     }
     private bool CanAttackNow(Card card)
     {
@@ -314,13 +470,8 @@ public class LocalBattleManager:NetworkBehaviour
         CardData[] data = new CardData[cards.Count];
         for(int i = 0; i < cards.Count; i++)
         {
-            data[i] = new CardData {
-                id = Card.GetCardId(cards[i]),
-                cost = cards[i].Cost,
-                atk = cards[i].Attack,
-                hp = cards[i].Hp,
-                canAttackNow = CanAttackNow(cards[i])
-            };
+            data[i] = Card.PackingCard(cards[i]);
+            data[i].canAttackNow = CanAttackNow(cards[i]);
         }
         return data;   
     }
@@ -333,6 +484,161 @@ public class LocalBattleManager:NetworkBehaviour
             case 1:return client;
         }
         return host;
+    }
+
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    private void SubmitPlayByIdServerRpc(int sourceUniqueId, bool addCost,
+        int[] targetUniqueIds, RpcParams rpcParams = default)
+    {
+        Player sender = GetPlayerForClient(rpcParams.Receive.SenderClientId);
+        if (sender == null || gm == null || gm.turn != sender) return;
+
+        Card source = sender.hand.FirstOrDefault(c => c.uniqueId == sourceUniqueId);
+        if (source == null) return;
+        Player enemy = GetEnemyPlayer(sender);
+        List<Card> targets = ResolvePlayTargets(sender, enemy, source, targetUniqueIds);
+        if (targetUniqueIds != null && targetUniqueIds.Length > 0 && targets == null) return;
+
+        PlayerAction action = new PlayerAction(ActionType.Play, source, targets)
+        {
+            isAddCost = addCost
+        };
+        if (!gm.ExecuteAction(sender, enemy, action)) return;
+
+        CardData playedCard = Card.PackingCard(source);
+        PresentPlayRpc(rpcParams.Receive.SenderClientId, playedCard);
+        PackageData(host);
+        PackageData(client);
+    }
+
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    private void SubmitAttackByIdServerRpc(int attackerUniqueId, int targetUniqueId,
+        RpcParams rpcParams = default)
+    {
+        Player sender = GetPlayerForClient(rpcParams.Receive.SenderClientId);
+        if (sender == null || gm == null || gm.turn != sender) return;
+        Player enemy = GetEnemyPlayer(sender);
+        Card attacker = sender.field.FirstOrDefault(c => c.uniqueId == attackerUniqueId);
+        if (attacker == null) return;
+
+        Card target = targetUniqueId >= 0
+            ? enemy.field.FirstOrDefault(c => c.uniqueId == targetUniqueId) : null;
+        if (targetUniqueId >= 0 && target == null) return;
+
+        CardData attackerData = Card.PackingCard(attacker);
+        CardData targetData = target != null ? Card.PackingCard(target) : default;
+        PlayerAction action = target == null
+            ? new PlayerAction(ActionType.Attack, attacker)
+            : new PlayerAction(ActionType.Attack, attacker, new List<Card> { target });
+        if (!gm.ExecuteAction(sender, enemy, action)) return;
+
+        PresentAttackRpc(rpcParams.Receive.SenderClientId, attackerData,
+            targetData, target != null);
+        PackageData(host);
+        PackageData(client);
+    }
+
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    private void SubmitSelfGarbageByIdServerRpc(int[] selectedUniqueIds,
+        RpcParams rpcParams = default)
+    {
+        Player sender = GetPlayerForClient(rpcParams.Receive.SenderClientId);
+        if (sender == null || gm == null || gm.turn != sender) return;
+        List<Card> selected = new List<Card>();
+        foreach (int id in selectedUniqueIds ?? new int[0])
+        {
+            Card card = sender.field.FirstOrDefault(c => c.uniqueId == id);
+            if (card == null) return;
+            selected.Add(card);
+        }
+
+        if (!gm.ExecuteAction(sender, GetEnemyPlayer(sender),
+            new PlayerAction(ActionType.SelfGarbage, selected))) return;
+        PackageData(host);
+        PackageData(client);
+    }
+
+    private List<Card> ResolvePlayTargets(Player sender, Player enemy, Card source,
+        int[] targetUniqueIds)
+    {
+        if (targetUniqueIds == null || targetUniqueIds.Length == 0) return null;
+        List<Card> pool;
+        switch (source.select.whereTarget)
+        {
+            case where.hand: pool = sender.hand; break;
+            case where.selfField: pool = sender.field; break;
+            case where.enemyField: pool = enemy.field; break;
+            default: return null;
+        }
+
+        List<Card> targets = new List<Card>();
+        foreach (int id in targetUniqueIds.Distinct())
+        {
+            Card target = pool.FirstOrDefault(c => c.uniqueId == id);
+            if (target == null) return null;
+            targets.Add(target);
+        }
+        return targets;
+    }
+
+    private Player GetPlayerForClient(ulong clientId)
+    {
+        if (clientId == NetworkManager.ServerClientId) return host;
+        return clientId == remoteClientId ? client : null;
+    }
+
+    [Rpc(SendTo.Everyone)]
+    private void PresentPlayRpc(ulong actorClientId, CardData cardData)
+    {
+        bool isLocalActor = actorClientId == NetworkManager.LocalClientId;
+        CardLayoutManager from = isLocalActor ? p1HandLayout : p2HandLayout;
+        CardLayoutManager to = isLocalActor ? p1FieldLayout : p2FieldLayout;
+        if (to == null) return;
+
+        GameObject cardObject = from != null ? from.FindCardObject(cardData) : null;
+        if (cardObject != null) to.ReceiveCard(from, cardData, cardObject);
+        else if (to.FindCardObject(cardData) == null)
+            to.CreateCard(cardData, GetCardImage(cardData));
+
+        to.UpdateCard(cardData, isLocalActor, GetAbilityText(cardData), true,
+            GetCardImage(cardData));
+    }
+
+    [Rpc(SendTo.Everyone)]
+    private void PresentAttackRpc(ulong actorClientId, CardData attackerData,
+        CardData targetData, bool hasTarget)
+    {
+        bool isLocalActor = actorClientId == NetworkManager.LocalClientId;
+        CardLayoutManager attackerLayout = isLocalActor ? p1FieldLayout : p2FieldLayout;
+        CardLayoutManager targetLayout = isLocalActor ? p2FieldLayout : p1FieldLayout;
+        if (attackerLayout == null) return;
+
+        GameObject targetObject = hasTarget && targetLayout != null
+            ? targetLayout.FindCardObject(targetData) : null;
+        Vector3 targetPosition = targetObject != null
+            ? targetObject.transform.position
+            : (targetLayout != null ? targetLayout.CenterPosition : attackerLayout.CenterPosition);
+        isPresenting = true;
+        attackerLayout.PlayAttack(attackerData, targetPosition, () => isPresenting = false);
+    }
+
+    private string GetAbilityText(CardData data)
+    {
+        CardSetting setting = GetCardSetting(data);
+        return setting != null ? setting.ability : string.Empty;
+    }
+
+    private Sprite GetCardImage(CardData data)
+    {
+        CardSetting setting = GetCardSetting(data);
+        return setting != null ? setting.cardImage : null;
+    }
+
+    private CardSetting GetCardSetting(CardData data)
+    {
+        if (cardDatabase == null) return null;
+        string className = Card.GetCardClassName(data.id);
+        return cardDatabase.cards.FirstOrDefault(c => c.className == className);
     }
     //マリガン用
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
@@ -440,6 +746,7 @@ public class LocalBattleManager:NetworkBehaviour
         if (isCorrect)
         {
             Debug.Log($"正常にカードがプレイされました。");            
+            PresentPlayRpc(senderId, Card.PackingCard(playCard));
             PackageData(host);
             PackageData(client);
         }
@@ -511,6 +818,7 @@ public class LocalBattleManager:NetworkBehaviour
         if (isCorrect)
         {
             Debug.Log($"正常にカードがプレイされました。");            
+            PresentPlayRpc(senderId, Card.PackingCard(playCard));
             PackageData(host);
             PackageData(client);
         }
@@ -554,8 +862,8 @@ public class LocalBattleManager:NetworkBehaviour
     public void AllowAttackTargetClientRpc(int attackerFieldIndex, ClientRpcParams rpcParams = default)
     {
         Debug.Log("サーバーから攻撃の許可が降りました！ターゲット選択を開きます。");
-        
-        visualManager.OpenAttackSelectUI(attackerFieldIndex); 
+        if (visualManager != null)
+            visualManager.OpenAttackSelectUI(attackerFieldIndex);
     }
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     public void AttackActionRpc(int attackerIndex,int targetIndex,RpcParams rpcParams = default){
@@ -572,6 +880,7 @@ public class LocalBattleManager:NetworkBehaviour
         Card attackerCard = senderPlayer.field[attackerIndex];
         
         PlayerAction action;
+        Card targetCard = null;
 
         if (targetIndex == -1)
         {
@@ -582,16 +891,19 @@ public class LocalBattleManager:NetworkBehaviour
         {
             // 通常の攻撃（ターゲットの取得もインデックスで直接行う！）
             if (targetIndex < 0 || targetIndex >= GetEnemyPlayer().field.Count) return;
-            Card targetCard = GetEnemyPlayer().field[targetIndex];
+            targetCard = GetEnemyPlayer().field[targetIndex];
             
             action = new PlayerAction(ActionType.Attack, attackerCard, new List<Card> { targetCard });
         }
+        CardData attackerData = Card.PackingCard(attackerCard);
+        CardData targetData = targetCard != null ? Card.PackingCard(targetCard) : default;
         bool isCorrect;
         isCorrect = gm.ExecuteAction(gm.turn,GetEnemyPlayer(),action);
 
         if (isCorrect)
         {
             Debug.Log($"攻撃処理が正常に処理されました。");
+            PresentAttackRpc(senderId, attackerData, targetData, targetCard != null);
             PackageData(host);
             PackageData(client);
             return;
@@ -622,7 +934,7 @@ public class LocalBattleManager:NetworkBehaviour
     {
         return GetEnemyPlayer(gm.turn);
     }
-    private Player GetEnemyPlayer(Player pl)
+    private new Player GetEnemyPlayer(Player pl)
     {
         return pl == host ? client : host;
     }

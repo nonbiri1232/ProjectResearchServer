@@ -690,11 +690,13 @@ public class LocalBattleVisual : MonoBehaviour
     }
     public void ShowPopUp(string abilityText)
     {
+        if (cardPopupPanel == null || cardPopupText == null) return;
         cardPopupText.text = abilityText;
+        cardPopupPanel.transform.SetAsLastSibling();
         cardPopupPanel.SetActive(true);
     }
     public void HidePopUp()
     {
-        cardPopupPanel.SetActive(false);
+        if (cardPopupPanel != null) cardPopupPanel.SetActive(false);
     }
 }

@@ -78,6 +78,7 @@
   <Project Path="UnityEditor.UI.Analytics.csproj" />
   <Project Path="Unity.2D.Common.Runtime.csproj" />
   <Project Path="Assembly-CSharp-Editor.csproj" />
+  <Project Path="MyApp.Shared.Unity.csproj" />
   <Project Path="Unity.AppUI.Editor.csproj" />
   <Project Path="Unity.InputSystem.TestFramework.csproj" />
   <Project Path="Unity.VisualScripting.Shared.Editor.csproj" />
